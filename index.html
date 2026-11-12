@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Time Attack TF | Accesos 2027</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #080808;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    main {
+      max-width: 600px;
+      margin: 40px auto;
+    }
+    .card {
+      background: #191919;
+      border: 1px solid #444;
+      border-radius: 16px;
+      padding: 24px;
+    }
+    button {
+      padding: 16px;
+      border: 0;
+      border-radius: 10px;
+      font-size: 17px;
+      font-weight: bold;
+    }
+    #reader {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p>TIME ATTACK TF · TEMPORADA 2027</p>
+    <h1>Control de accesos</h1>
+    <div class="card">
+      <h2>Escáner QR</h2>
+      <p>Prueba de acceso a la cámara del dispositivo.</p>
+      <button id="start">Abrir cámara</button>
+      <div id="reader"></div>
+      <p id="status"></p>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    document.getElementById('start').onclick = async () => {
+      const status = document.getElementById('status');
+      status.textContent = 'Abriendo cámara...';
+
+      try {
+        if (!window.Html5Qrcode) {
+          throw new Error('No se cargó la biblioteca QR');
+        }
+
+        const scanner = new Html5Qrcode('reader');
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: 220 },
+          decodedText => {
+            status.textContent = 'QR detectado correctamente';
+            console.log('QR detectado');
+            scanner.stop();
+          },
+          () => {}
+        );
+
+        status.textContent = 'Cámara activa. Lista para escanear.';
+      } catch (error) {
+        status.textContent =
+          'Error: ' + (error.message || String(error));
+      }
+    };
+  </script>
+</body>
+</html>

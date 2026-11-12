@@ -65,8 +65,7 @@
           { facingMode: 'environment' },
           { fps: 10, qrbox: 220 },
           decodedText => {
-            status.textContent = 'QR detectado correctamente';
-            console.log('QR detectado');
+            status.textContent = 'QR leído: ' + decodedText;
             scanner.stop();
           },
           () => {}

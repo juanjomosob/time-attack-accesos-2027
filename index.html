@@ -59,6 +59,32 @@
   </button>
 
   <p id="loginStatus"></p>
+  
+<div id="fichaPiloto" style="display:none; margin-top:20px;">
+  <hr style="border:1px solid #444;">
+
+  <h2>Control de acceso</h2>
+
+  <p id="estadoPiloto"></p>
+  <p id="estadoAuto"></p>
+
+  <button id="btnEntradaPiloto" type="button">
+    Entrada piloto
+  </button>
+
+  <button id="btnSalidaPiloto" type="button">
+    Salida piloto
+  </button>
+
+  <button id="btnEntradaAuto" type="button">
+    Entrada automóvil
+  </button>
+
+  <button id="btnSalidaAuto" type="button">
+    Salida automóvil
+  </button>
+</div>
+
 </div>
 
     <div class="card">
@@ -131,6 +157,30 @@ fetch(
   }
 
   const piloto = datos.resultado.piloto;
+
+const ficha = document.getElementById('fichaPiloto');
+const estadoPiloto = document.getElementById('estadoPiloto');
+const estadoAuto = document.getElementById('estadoAuto');
+
+ficha.style.display = 'block';
+
+estadoPiloto.textContent =
+  'Piloto: ' + (piloto.pilotoDentro ? 'DENTRO' : 'FUERA');
+
+estadoAuto.textContent =
+  'Automóvil: ' + (piloto.autoDentro ? 'DENTRO' : 'FUERA');
+
+document.getElementById('btnEntradaPiloto').disabled =
+  piloto.pilotoDentro;
+
+document.getElementById('btnSalidaPiloto').disabled =
+  !piloto.pilotoDentro;
+
+document.getElementById('btnEntradaAuto').disabled =
+  piloto.autoDentro;
+
+document.getElementById('btnSalidaAuto').disabled =
+  !piloto.autoDentro;
 
   status.textContent =
     'Piloto: ' + piloto.nombre +

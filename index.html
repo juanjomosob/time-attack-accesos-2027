@@ -110,4 +110,21 @@ async function probarConexion() {
 </script>
 
 <button onclick="probarConexion()">Probar conexión con Apps Script</button></body>
+  <script>
+async function probarCloudflare() {
+  try {
+    const respuesta = await fetch(
+      'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/'
+    );
+
+    const datos = await respuesta.json();
+
+    alert(datos.mensaje);
+  } catch (error) {
+    alert('Error de conexión: ' + error.message);
+  }
+}
+</script>
+
+<button onclick="probarCloudflare()">Probar conexión con Cloudflare</button>
 </html>

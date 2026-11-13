@@ -105,8 +105,43 @@ if (!sesion) {
             return;
         }
 
-        status.textContent = 'Token detectado: ' + token;
-        scanner.stop();
+        
+status.textContent = 'Consultando datos del piloto...';
+
+scanner.stop().catch(console.error);
+
+fetch(
+  'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      accion: 'lookup',
+      session: sessionStorage.getItem('timeAttackSession'),
+      token: token
+    })
+  }
+)
+.then(respuesta => respuesta.json())
+.then(datos => {
+  if (!datos.ok) {
+    throw new Error(datos.error || 'No se encontró al piloto.');
+  }
+
+  const piloto = datos.resultado.piloto;
+
+  status.textContent =
+    'Piloto: ' + piloto.nombre +
+    ' | Auto: ' + piloto.auto +
+    ' | Categoría: ' + piloto.categoria +
+    ' | PIT: ' + piloto.pit;
+})
+.catch(error => {
+  status.textContent = 'Error: ' + error.message;
+});
+
 
     } catch (error) {
         status.textContent = 'El QR no contiene un enlace válido.';

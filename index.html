@@ -64,10 +64,23 @@
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: 220 },
-          decodedText => {
-            status.textContent = 'QR leído: ' + decodedText;
-            scanner.stop();
-          },
+         decodedText => {
+    try {
+        const url = new URL(decodedText);
+        const token = url.searchParams.get('t');
+
+        if (!token) {
+            status.textContent = 'El QR no contiene un token válido.';
+            return;
+        }
+
+        status.textContent = 'Token detectado: ' + token;
+        scanner.stop();
+
+    } catch (error) {
+        status.textContent = 'El QR no contiene un enlace válido.';
+    }
+},
           () => {}
         );
 

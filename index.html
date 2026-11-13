@@ -39,6 +39,28 @@
   <main>
     <p>TIME ATTACK TF · TEMPORADA 2027</p>
     <h1>Control de accesos</h1>
+    
+<div class="card" id="loginCard" style="margin-bottom:20px;">
+  <h2>Acceso del staff</h2>
+  <p>Introduce tu PIN para iniciar sesión.</p>
+
+  <input
+    type="password"
+    id="staffPin"
+    placeholder="PIN del staff"
+    inputmode="numeric"
+    autocomplete="off"
+    style="width:100%;box-sizing:border-box;padding:16px;
+    font-size:18px;border-radius:10px;margin-bottom:12px;"
+  >
+
+  <button id="loginButton" type="button">
+    Iniciar sesión
+  </button>
+
+  <p id="loginStatus"></p>
+</div>
+
     <div class="card">
       <h2>Escáner QR</h2>
       <p>Prueba de acceso a la cámara del dispositivo.</p>
@@ -51,6 +73,15 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
     document.getElementById('start').onclick = async () => {
+      
+const sesion = sessionStorage.getItem('timeAttackSession');
+
+if (!sesion) {
+  document.getElementById('status').textContent =
+    'Primero debes iniciar sesión con tu PIN de staff.';
+  return;
+}
+
       const status = document.getElementById('status');
       status.textContent = 'Abriendo cámara...';
 
@@ -127,4 +158,59 @@ async function probarCloudflare() {
 </script>
 
 <button onclick="probarCloudflare()">Probar conexión con Cloudflare</button>
+  
+<script>
+  const WORKER_URL =
+    'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/';
+
+  document.getElementById('loginButton').onclick = async () => {
+    const boton = document.getElementById('loginButton');
+    const campoPin = document.getElementById('staffPin');
+    const estado = document.getElementById('loginStatus');
+    const pin = campoPin.value.trim();
+
+    if (!/^\d{4,12}$/.test(pin)) {
+      estado.textContent = 'Introduce un PIN válido.';
+      return;
+    }
+
+    boton.disabled = true;
+    estado.textContent = 'Verificando PIN...';
+
+    try {
+      const respuesta = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accion: 'login',
+          pin: pin
+        })
+      });
+
+      const datos = await respuesta.json();
+
+      if (!datos.ok || !datos.session) {
+        throw new Error(datos.error || 'No se pudo iniciar sesión.');
+      }
+
+      sessionStorage.setItem('timeAttackSession', datos.session);
+      campoPin.value = '';
+      document.getElementById('loginCard').style.display = 'none';
+
+      estado.textContent = '';
+      alert('Sesión iniciada correctamente.');
+
+    } catch (error) {
+      estado.textContent = error.message || 'Error de conexión.';
+    } finally {
+      boton.disabled = false;
+    }
+  };
+  
+if (sessionStorage.getItem('timeAttackSession')) {
+  document.getElementById('loginCard').style.display = 'none';
+}
+
+</script>
+
 </html>

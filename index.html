@@ -91,5 +91,23 @@
       }
     };
   </script>
-</body>
+<script>
+async function probarConexion() {
+  const url = 'https://script.google.com/macros/s/AKfycbyf9wXTPvl_2yACHrXWByGGoEUds9M4DhG8s-mTnZ9RXTG5XjHa-EAGMRb2XcATbEy3/exec';
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({ prueba: true })
+    });
+
+    alert('Solicitud enviada. Falta verificar si Apps Script la recibió.');
+  } catch (error) {
+    alert('Error al enviar la solicitud: ' + error.message);
+  }
+}
+</script>
+
+<button onclick="probarConexion()">Probar conexión con Apps Script</button></body>
 </html>

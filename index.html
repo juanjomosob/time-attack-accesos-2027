@@ -1,301 +1,256 @@
-
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Time Attack TF | Accesos 2027</title>
   <style>
-    body {
-      margin: 0;
-      padding: 24px;
-      background: #080808;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-    main {
-      max-width: 600px;
-      margin: 40px auto;
-    }
-    .card {
-      background: #191919;
-      border: 1px solid #444;
-      border-radius: 16px;
-      padding: 24px;
-    }
-    button {
-      padding: 16px;
-      border: 0;
-      border-radius: 10px;
-      font-size: 17px;
-      font-weight: bold;
-    }
-    #reader {
-      margin-top: 20px;
-    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px; background: #080808; color: #fff; font-family: Arial, sans-serif; }
+    main { max-width: 600px; margin: 28px auto; }
+    .card { background: #191919; border: 1px solid #444; border-radius: 16px; padding: 20px; margin-bottom: 18px; }
+    button { padding: 15px; border: 0; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    input { width: 100%; padding: 16px; font-size: 18px; border-radius: 10px; margin-bottom: 12px; }
+    #reader { margin-top: 20px; }
+    #status, #loginStatus { line-height: 1.5; overflow-wrap: anywhere; }
+    .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .actions button { min-width: 0; }
+    @media (max-width: 420px) { .actions { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <main>
     <p>TIME ATTACK TF · TEMPORADA 2027</p>
     <h1>Control de accesos</h1>
-    
-<div class="card" id="loginCard" style="margin-bottom:20px;">
-  <h2>Acceso del staff</h2>
-  <p>Introduce tu PIN para iniciar sesión.</p>
 
-  <input
-    type="password"
-    id="staffPin"
-    placeholder="PIN del staff"
-    inputmode="numeric"
-    autocomplete="off"
-    style="width:100%;box-sizing:border-box;padding:16px;
-    font-size:18px;border-radius:10px;margin-bottom:12px;"
-  >
-
-  <button id="loginButton" type="button">
-    Iniciar sesión
-  </button>
-
-  <p id="loginStatus"></p>
-  
-</div>
-
-</div>
+    <div class="card" id="loginCard">
+      <h2>Acceso del staff</h2>
+      <p>Introduce tu PIN para iniciar sesión.</p>
+      <input type="password" id="staffPin" placeholder="PIN del staff" inputmode="numeric" autocomplete="off">
+      <button id="loginButton" type="button">Iniciar sesión</button>
+      <p id="loginStatus" role="status"></p>
+    </div>
 
     <div class="card">
       <h2>Escáner QR</h2>
-      <p>Prueba de acceso a la cámara del dispositivo.</p>
-      <button id="start">Abrir cámara</button>
+      <p>Escanea el QR del piloto para consultar su ficha y registrar movimientos.</p>
+      <button id="start" type="button">Abrir cámara</button>
       <div id="reader"></div>
-      <p id="status"></p>
-        <div id="fichaPiloto" style="display:none; margin-top:20px;">
-  <hr style="border:1px solid #444;">
+      <p id="status" role="status" aria-live="polite"></p>
 
-  <h2>Control de acceso</h2>
-
-  <p id="estadoPiloto"></p>
-  <p id="estadoAuto"></p>
-
-  <button id="btnEntradaPiloto" type="button">
-    Entrada piloto
-  </button>
-
-  <button id="btnSalidaPiloto" type="button">
-    Salida piloto
-  </button>
-
-  <button id="btnEntradaAuto" type="button">
-    Entrada automóvil
-  </button>
-
-  <button id="btnSalidaAuto" type="button">
-    Salida automóvil
-  </button>
+      <div id="fichaPiloto" style="display:none; margin-top:20px;">
+        <hr style="border:1px solid #444;">
+        <h2>Control de acceso</h2>
+        <p id="datosPiloto"></p>
+        <p id="estadoPiloto"></p>
+        <p id="estadoAuto"></p>
+        <div class="actions">
+          <button id="btnEntradaPiloto" type="button">Entrada piloto</button>
+          <button id="btnSalidaPiloto" type="button">Salida piloto</button>
+          <button id="btnEntradaAuto" type="button">Entrada automóvil</button>
+          <button id="btnSalidaAuto" type="button">Salida automóvil</button>
+        </div>
+      </div>
     </div>
   </main>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
-    document.getElementById('start').onclick = async () => {
-      
-const sesion = sessionStorage.getItem('timeAttackSession');
+    const WORKER_URL = 'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/';
+    const status = document.getElementById('status');
+    const ficha = document.getElementById('fichaPiloto');
+    const startButton = document.getElementById('start');
+    const buttons = {
+      ENTRADA_PILOTO: document.getElementById('btnEntradaPiloto'),
+      SALIDA_PILOTO: document.getElementById('btnSalidaPiloto'),
+      ENTRADA_AUTO: document.getElementById('btnEntradaAuto'),
+      SALIDA_AUTO: document.getElementById('btnSalidaAuto')
+    };
+    let currentToken = null;
+    let currentPilot = null;
+    let scanner = null;
+    let busy = false;
+    let scanning = false;
 
-if (!sesion) {
-  document.getElementById('status').textContent =
-    'Primero debes iniciar sesión con tu PIN de staff.';
-  return;
-}
+    async function api(payload) {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudo completar la operación.');
+      }
+      return data;
+    }
 
-      const status = document.getElementById('status');
-      status.textContent = 'Abriendo cámara...';
+    function updateButtons() {
+      const ready = Boolean(currentPilot) && !busy;
+      buttons.ENTRADA_PILOTO.disabled = !ready || Boolean(currentPilot.pilotoDentro);
+      buttons.SALIDA_PILOTO.disabled = !ready || !currentPilot.pilotoDentro;
+      buttons.ENTRADA_AUTO.disabled = !ready || Boolean(currentPilot.autoDentro);
+      buttons.SALIDA_AUTO.disabled = !ready || !currentPilot.autoDentro;
+    }
 
+    function showPilot(pilot) {
+      currentPilot = pilot;
+      ficha.style.display = 'block';
+      document.getElementById('datosPiloto').textContent =
+        'Piloto: ' + pilot.nombre + ' | Auto: ' + pilot.auto +
+        ' | Categoría: ' + pilot.categoria + ' | PIT: ' + pilot.pit;
+      document.getElementById('estadoPiloto').textContent =
+        'Piloto: ' + (pilot.pilotoDentro ? 'DENTRO' : 'FUERA');
+      document.getElementById('estadoAuto').textContent =
+        'Automóvil: ' + (pilot.autoDentro ? 'DENTRO' : 'FUERA');
+      updateButtons();
+    }
+
+    function clearPilot() {
+      currentToken = null;
+      currentPilot = null;
+      ficha.style.display = 'none';
+      updateButtons();
+    }
+
+    document.getElementById('loginButton').onclick = async () => {
+      const button = document.getElementById('loginButton');
+      const field = document.getElementById('staffPin');
+      const message = document.getElementById('loginStatus');
+      const pin = field.value.trim();
+      if (!/^\d{4,12}$/.test(pin)) {
+        message.textContent = 'Introduce un PIN válido.';
+        return;
+      }
+      button.disabled = true;
+      message.textContent = 'Verificando PIN...';
       try {
-        if (!window.Html5Qrcode) {
-          throw new Error('No se cargó la biblioteca QR');
-        }
+        const data = await api({ accion: 'login', pin });
+        if (!data.session) throw new Error('No se recibió la sesión del staff.');
+        sessionStorage.setItem('timeAttackSession', data.session);
+        field.value = '';
+        message.textContent = '';
+        document.getElementById('loginCard').style.display = 'none';
+        status.textContent = 'Sesión iniciada. Puedes abrir la cámara.';
+      } catch (error) {
+        message.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    };
 
-        const scanner = new Html5Qrcode('reader');
+    if (sessionStorage.getItem('timeAttackSession')) {
+      document.getElementById('loginCard').style.display = 'none';
+    }
 
+    startButton.onclick = async () => {
+      if (!sessionStorage.getItem('timeAttackSession')) {
+        status.textContent = 'Primero debes iniciar sesión con tu PIN de staff.';
+        return;
+      }
+      if (scanning || busy) return;
+      clearPilot();
+      status.textContent = 'Abriendo cámara...';
+      startButton.disabled = true;
+      try {
+        if (!window.Html5Qrcode) throw new Error('No se cargó la biblioteca QR.');
+        if (!scanner) scanner = new Html5Qrcode('reader');
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: 220 },
-         decodedText => {
-    try {
-        const url = new URL(decodedText);
-        const token = url.searchParams.get('t');
-
-        if (!token) {
-            status.textContent = 'El QR no contiene un token válido.';
-            return;
-        }
-
-        
-status.textContent = 'Consultando datos del piloto...';
-
-scanner.stop().catch(console.error);
-
-fetch(
-  'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/',
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      accion: 'lookup',
-      session: sessionStorage.getItem('timeAttackSession'),
-      token: token
-    })
-  }
-)
-.then(respuesta => respuesta.json())
-.then(datos => {
-  if (!datos.ok) {
-    throw new Error(datos.error || 'No se encontró al piloto.');
-  }
-
-  const piloto = datos.resultado.piloto;
-
-const ficha = document.getElementById('fichaPiloto');
-const estadoPiloto = document.getElementById('estadoPiloto');
-const estadoAuto = document.getElementById('estadoAuto');
-
-ficha.style.display = 'block';
-
-estadoPiloto.textContent =
-  'Piloto: ' + (piloto.pilotoDentro ? 'DENTRO' : 'FUERA');
-
-estadoAuto.textContent =
-  'Automóvil: ' + (piloto.autoDentro ? 'DENTRO' : 'FUERA');
-
-document.getElementById('btnEntradaPiloto').disabled =
-  piloto.pilotoDentro;
-
-document.getElementById('btnSalidaPiloto').disabled =
-  !piloto.pilotoDentro;
-
-document.getElementById('btnEntradaAuto').disabled =
-  piloto.autoDentro;
-
-document.getElementById('btnSalidaAuto').disabled =
-  !piloto.autoDentro;
-
-  status.textContent =
-    'Piloto: ' + piloto.nombre +
-    ' | Auto: ' + piloto.auto +
-    ' | Categoría: ' + piloto.categoria +
-    ' | PIT: ' + piloto.pit;
-})
-.catch(error => {
-  status.textContent = 'Error: ' + error.message;
-});
-
-
-    } catch (error) {
-        status.textContent = 'El QR no contiene un enlace válido.';
-    }
-},
+          async decodedText => {
+            if (busy) return;
+            busy = true;
+            try {
+              const url = new URL(decodedText);
+              const token = url.searchParams.get('t');
+              if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
+                throw new Error('El QR no contiene un token válido.');
+              }
+              status.textContent = 'Consultando datos del piloto...';
+              await scanner.stop();
+              scanning = false;
+              const data = await api({
+                accion: 'lookup',
+                session: sessionStorage.getItem('timeAttackSession'),
+                token
+              });
+              if (!data.resultado || !data.resultado.piloto) {
+                throw new Error('No se encontró la ficha del piloto.');
+              }
+              currentToken = token;
+              showPilot(data.resultado.piloto);
+              status.textContent = 'QR consultado correctamente. Selecciona la operación correspondiente.';
+            } catch (error) {
+              clearPilot();
+              status.textContent = 'Error: ' + error.message;
+              if (/sesión|session|caducad/i.test(error.message)) {
+                sessionStorage.removeItem('timeAttackSession');
+                document.getElementById('loginCard').style.display = 'block';
+              }
+            } finally {
+              busy = false;
+              startButton.disabled = false;
+              updateButtons();
+            }
+          },
           () => {}
         );
-
+        scanning = true;
         status.textContent = 'Cámara activa. Lista para escanear.';
       } catch (error) {
-        status.textContent =
-          'Error: ' + (error.message || String(error));
+        startButton.disabled = false;
+        status.textContent = 'Error: ' + (error.message || String(error));
       }
     };
-  </script>
-<script>
-async function probarConexion() {
-  const url = 'https://script.google.com/macros/s/AKfycbyf9wXTPvl_2yACHrXWByGGoEUds9M4DhG8s-mTnZ9RXTG5XjHa-EAGMRb2XcATbEy3/exec';
 
-  try {
-    await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify({ prueba: true })
-    });
-
-    alert('Solicitud enviada. Falta verificar si Apps Script la recibió.');
-  } catch (error) {
-    alert('Error al enviar la solicitud: ' + error.message);
-  }
-}
-</script>
-
-<button onclick="probarConexion()">Probar conexión con Apps Script</button></body>
-  <script>
-async function probarCloudflare() {
-  try {
-    const respuesta = await fetch(
-      'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/'
-    );
-
-    const datos = await respuesta.json();
-
-    alert(datos.mensaje);
-  } catch (error) {
-    alert('Error de conexión: ' + error.message);
-  }
-}
-</script>
-
-<button onclick="probarCloudflare()">Probar conexión con Cloudflare</button>
-  
-<script>
-  const WORKER_URL =
-    'https://time-attack-accesos-2027.juanjo-mosob.workers.dev/';
-
-  document.getElementById('loginButton').onclick = async () => {
-    const boton = document.getElementById('loginButton');
-    const campoPin = document.getElementById('staffPin');
-    const estado = document.getElementById('loginStatus');
-    const pin = campoPin.value.trim();
-
-    if (!/^\d{4,12}$/.test(pin)) {
-      estado.textContent = 'Introduce un PIN válido.';
-      return;
-    }
-
-    boton.disabled = true;
-    estado.textContent = 'Verificando PIN...';
-
-    try {
-      const respuesta = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accion: 'login',
-          pin: pin
-        })
-      });
-
-      const datos = await respuesta.json();
-
-      if (!datos.ok || !datos.session) {
-        throw new Error(datos.error || 'No se pudo iniciar sesión.');
+    async function registerMove(action) {
+      if (busy || !currentToken || !currentPilot) return;
+      const session = sessionStorage.getItem('timeAttackSession');
+      if (!session) {
+        status.textContent = 'La sesión no está disponible. Inicia sesión nuevamente.';
+        document.getElementById('loginCard').style.display = 'block';
+        return;
       }
-
-      sessionStorage.setItem('timeAttackSession', datos.session);
-      campoPin.value = '';
-      document.getElementById('loginCard').style.display = 'none';
-
-      estado.textContent = '';
-      alert('Sesión iniciada correctamente.');
-
-    } catch (error) {
-      estado.textContent = error.message || 'Error de conexión.';
-    } finally {
-      boton.disabled = false;
+      busy = true;
+      updateButtons();
+      status.textContent = 'Registrando movimiento...';
+      try {
+        await api({
+          accion: 'move',
+          session,
+          token: currentToken,
+          action,
+          door: 'ACCESO PRINCIPAL'
+        });
+        // Consultar nuevamente el estado real registrado en Google Sheets.
+        const updated = await api({ accion: 'lookup', session, token: currentToken });
+        if (!updated.resultado || !updated.resultado.piloto) {
+          throw new Error('No se pudo actualizar la ficha. Vuelve a escanear el QR.');
+        }
+        showPilot(updated.resultado.piloto);
+        status.textContent = 'Movimiento registrado. Estado actualizado.';
+      } catch (error) {
+        status.textContent = 'Error: ' + error.message + ' Verifica el estado antes de volver a intentar.';
+        if (/sesión|session|caducad/i.test(error.message)) {
+          sessionStorage.removeItem('timeAttackSession');
+          document.getElementById('loginCard').style.display = 'block';
+          clearPilot();
+        } else {
+          // Ante una respuesta incierta, obligar a consultar el estado actualizado.
+          clearPilot();
+        }
+      } finally {
+        busy = false;
+        updateButtons();
+      }
     }
-  };
-  
-if (sessionStorage.getItem('timeAttackSession')) {
-  document.getElementById('loginCard').style.display = 'none';
-}
 
-</script>
-
+    Object.entries(buttons).forEach(([action, button]) => {
+      button.onclick = () => registerMove(action);
+    });
+    updateButtons();
+  </script>
+</body>
 </html>

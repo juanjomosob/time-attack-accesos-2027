@@ -174,7 +174,7 @@
             try {
               const url = new URL(decodedText);
               const token = url.searchParams.get('t');
-              if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
+              if (!token || !/^(?:[a-f0-9]{32}|[a-f0-9]{64})$/i.test(token)) {
                 throw new Error('El QR no contiene un token válido.');
               }
               status.textContent = 'Consultando datos del piloto...';

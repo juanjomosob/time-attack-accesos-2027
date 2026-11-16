@@ -94,18 +94,27 @@
       buttons.SALIDA_AUTO.disabled = !ready || !currentPilot.autoDentro;
     }
 
-    function showPilot(pilot) {
-      currentPilot = pilot;
-      ficha.style.display = 'block';
-      document.getElementById('datosPiloto').textContent =
-        'Piloto: ' + pilot.nombre + ' | Auto: ' + pilot.auto +
-        ' | Categoría: ' + pilot.categoria + ' | PIT: ' + pilot.pit;
-      document.getElementById('estadoPiloto').textContent =
-        'Piloto: ' + (pilot.pilotoDentro ? 'DENTRO' : 'FUERA');
-      document.getElementById('estadoAuto').textContent =
-        'Automóvil: ' + (pilot.autoDentro ? 'DENTRO' : 'FUERA');
-      updateButtons();
-    }
+   function showPilot(pilot) {
+  currentPilot = pilot;
+  ficha.style.display = 'block';
+
+  document.getElementById('datosPiloto').textContent =
+    'Piloto: ' + pilot.nombre +
+    ' | Auto: ' + pilot.auto +
+    ' | Modalidad: ' + pilot.modalidad +
+    (pilot.modalidad.trim().toLowerCase() === 'time attack'
+      ? ' | Categoría: ' + pilot.categoria
+      : '') +
+    ' | PIT: ' + pilot.pit;
+
+  document.getElementById('estadoPiloto').textContent =
+    'Piloto: ' + (pilot.pilotoDentro ? 'DENTRO' : 'FUERA');
+
+  document.getElementById('estadoAuto').textContent =
+    'Automóvil: ' + (pilot.autoDentro ? 'DENTRO' : 'FUERA');
+
+  updateButtons();
+}
 
     function clearPilot() {
       currentToken = null;
